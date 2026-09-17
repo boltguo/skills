@@ -1,3 +1,5 @@
 gemini-images
 *.pptx
 *.pdf
+
+.DS_Store
