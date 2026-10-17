@@ -61,6 +61,7 @@ Use only lyrics the user provides (pasted text, a .txt or an .lrc file). If the 
 | `--start S --end S` | render only this time range | whole song |
 | `--crf N` | H.264 quality | `18` |
 | `--workers N` | parallel renderers | up to 4 |
+| `--share` | also write `video_share.mp4` (CRF 26, ≤ 8 Mbps; ~5× smaller) | off |
 | `--out-dir DIR` | output folder | auto |
 
 Lyrics markup (`/` cut split, `*emphasis*`, `!` flash, `[間奏 8]` interlude, LRC tags): [references/lyrics-syntax.md](references/lyrics-syntax.md).
@@ -77,6 +78,7 @@ Lyrics markup (`/` cut split, `*emphasis*`, `!` flash, `[間奏 8]` interlude, L
 - Get the lyrics from the user (see above). Save them as `lyrics.txt` (or use their `.lrc` as is).
 - Note the song file path if they have one.
 - Song but no LRC timestamps → tell the user that cuts will snap to the beat but line starts are estimated, so lines may not land on the vocals. Offer: an LRC file, or `[mm:ss.xx]` tags on a few key lines (untagged lines are spread between them).
+- LRC from another source (a music platform, another edit of the song) → check it fits this audio: preview a few seconds around the first line with `--start` / `--end`, or compare the first tag with where the intro ends. An LRC made for another version shifts every line.
 
 ### Step 2: Mark up
 
@@ -84,7 +86,7 @@ Read [references/lyrics-syntax.md](references/lyrics-syntax.md) and add markup w
 
 - `/` in lines longer than ~14 CJK characters / 6 words, at a phrase break
 - `*…*` on 1–2 key words per section; `!` on the hook or climax line
-- `[間奏 N]` for instrumental sections when the song has them (from LRC gaps or the user)
+- `[間奏 N]` for instrumental sections when the song has them (from LRC gaps or the user). With LRC, put it untagged right after the line before a long gap (> ~8 s) with N ≈ the gap minus that line's length, and one after the last line to cover the outro up to the end of the song; otherwise those stretches show nothing
 - `[ti:…]` `[ar:…]` if the user gave title / artist
 
 Show the marked-up lyrics briefly so the user can correct them.
@@ -94,7 +96,7 @@ Show the marked-up lyrics briefly so the user can correct them.
 Call `AskUserQuestion` with these questions in a single call (first option = default, Recommended):
 
 1. **Ratio** — header: "Ratio", options: "16:9 (Recommended)" / "9:16 vertical" / "1:1" / "4:5"
-2. **Look** — header: "Look", options: the theme that fits the song best (see the table at the end of [references/styles.md](references/styles.md)) marked Recommended / "Random" / one or two other themes
+2. **Look** — header: "Look", options: the theme that fits the song best (see the table at the end of [references/styles.md](references/styles.md)) marked Recommended / "Random" / one or two other themes. For a short-video platform (抖音, TikTok, Reels, Shorts), recommend 9:16 in the Ratio question
 3. **Quality** — header: "Quality", options: "1080p 24fps (Recommended)" / "720p 24fps (faster)" / "1080p 30fps" / "4K 24fps (slow)"
 4. **Format** — header: "Format", options: "MP4 with song (Recommended)" / "Green screen MP4" / "Transparent MOV (ProRes 4444)" / "PNG sequence"
 
@@ -122,7 +124,7 @@ Run long renders in the background and wait for them to finish.
 
 ### Step 6: Results
 
-1. Report the video path, duration, resolution, seed and style
+1. Report the video path, duration, resolution, seed and style. A full song at CRF 18 can be 200 MB+; render with `--share` when the user will send or upload it
 2. Mention `project.json`: pass it back with `--project` to re-render the same look — another resolution or format gives the identical video; another ratio keeps style, timing and cuts while layouts adapt to the new frame
 3. On `success: false`, read `error` and see below
 

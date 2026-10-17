@@ -79,6 +79,7 @@ Which technique sets random picks may use. Default `extra,wa,typo,kinetic`.
 | rock, electronic, intense | no theme, or `--style noir` / `crimson` / `acid` |
 | ballad, acoustic | `--theme ballad`, style `paper` / `ocean` / `sunset` |
 | Japanese traditional, wa-pop | `--theme wa` |
+| Chinese 古风 / 国风 | style `sumi`, `gold` or `paper`, theme `ballad` (slow) or `kinetic` (DJ / electronic), and `--parts extra,typo,kinetic`: the `wa` set draws Japanese motifs with Japanese text on them (name tags, ema plaques) |
 | vocaloid / lyric PV | `--theme lyricpv` |
 | eerie, dark | `--theme horror` (turns the horror set on by itself) |
 

@@ -37,6 +37,7 @@ const USAGE = `usage: node render.mjs LYRICS_FILE [options]
   --start S --end S     render only this time range (seconds)
   --crf N               H.264 quality (default 18, lower = better)
   --workers N           parallel renderers (default: up to 4)
+  --share               also write video_share.mp4 (smaller, for phones / short-video apps)
   --out-dir DIR         output folder (default lyric-videos/<timestamp>-<slug>/)
   --chrome PATH         Chrome / Chromium executable (or set CHROME_PATH)`;
 
@@ -49,7 +50,7 @@ const { values: A, positionals } = parseArgs({
     theme: { type: 'string' }, style: { type: 'string' }, seed: { type: 'string' }, plain: { type: 'boolean' },
     parts: { type: 'string' }, fx: { type: 'string' }, project: { type: 'string' },
     title: { type: 'string' }, artist: { type: 'string' }, start: { type: 'string' }, end: { type: 'string' },
-    crf: { type: 'string', default: '18' }, workers: { type: 'string' }, 'out-dir': { type: 'string' },
+    crf: { type: 'string', default: '18' }, workers: { type: 'string' }, share: { type: 'boolean' }, 'out-dir': { type: 'string' },
     chrome: { type: 'string' }, help: { type: 'boolean', short: 'h' },
   },
 });
@@ -322,6 +323,12 @@ try {
       args.push('-c:v', 'copy', ...(format === 'mp4' ? ['-movflags', '+faststart'] : []), video);
       await run('ffmpeg', args);
       summary.video = video;
+      // grain / paper textures cost a lot of bitrate at CRF 18: a capped copy is easier to send and upload
+      if (A.share && format === 'mp4') {
+        summary.video_share = path.join(outDir, 'video_share.mp4');
+        await run('ffmpeg', ['-y', '-v', 'error', '-i', video, '-c:v', 'libx264', '-preset', 'medium', '-crf', '26', '-maxrate', '8M', '-bufsize', '16M',
+          '-pix_fmt', 'yuv420p', '-c:a', 'copy', '-movflags', '+faststart', summary.video_share]);
+      }
     }
   }
 } catch (e) {
