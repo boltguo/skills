@@ -3,3 +3,5 @@ gemini-images
 *.pdf
 
 .DS_Store
+lyric-videos
+node_modules

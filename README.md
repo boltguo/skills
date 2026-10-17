@@ -1,6 +1,6 @@
 # Agent Skills
 
-一组面向支持 Agent Skills 的 AI 助手的实用技能，目前涵盖 **Gemini 图片生成** 和 **中英文写作**。安装后，在对话中描述需求，Agent 会按照技能提供的流程、参考资料和工具完成任务。
+一组面向支持 Agent Skills 的 AI 助手的实用技能，目前涵盖 **Gemini 图片生成**、**中英文写作** 和 **歌词视频**。安装后，在对话中描述需求，Agent 会按照技能提供的流程、参考资料和工具完成任务。
 
 每个技能都可以单独安装，具体说明见各自的 `SKILL.md`。通过 [Skills CLI](https://github.com/vercel-labs/skills)，可以安装到 Claude Code、Codex、Cursor 等工具。
 
@@ -10,6 +10,7 @@
 | --- | --- | --- |
 | [gemini-image-gen](gemini-image-gen/SKILL.md) | 通过 Gemini API 生成图片，选择模型、尺寸和比例，保存图片及生成记录 | Python 3、Gemini API Key、网络连接 |
 | [human-writing-craft](human-writing-craft/SKILL.md) | 中英文去 AI 味、润色改写、内容创作、文风匹配、翻译和写作审校 | 写作流程无需额外 API Key；可选文本扫描工具需要 Python 3 |
+| [lyric-video](lyric-video/SKILL.md) | 把歌词（可配歌曲）自动编排成文字 PV / 动态歌词视频，按节拍切镜，导出 MP4、透明 MOV 或 PNG 序列 | Node.js 18+、ffmpeg、Playwright（Chromium） |
 
 ## 如何安装
 
@@ -27,6 +28,9 @@ npx skills add boltguo/skills --skill gemini-image-gen
 
 # 中英文写作
 npx skills add boltguo/skills --skill human-writing-craft
+
+# 歌词视频
+npx skills add boltguo/skills --skill lyric-video
 ```
 
 如需直接指定目标工具，在安装命令中添加 `--agent`：
@@ -122,5 +126,41 @@ python3 human-writing-craft/scripts/audit_text.py path/to/draft.md --lang auto
 ```
 
 扫描工具仅标记需要结合上下文判断的表达，不判断作者身份，也不输出“AI 概率”。
+
+### 歌词视频
+
+适合给原创歌曲、翻唱或 Demo 做歌词视频（文字 PV / Lyric Video）。渲染引擎来自开源项目 [JIZURA 字面](https://github.com/852wa/JIZURA)，无需打开编辑器。支持：
+
+- 根据歌词自动编排每个镜头的版式、进出场动画、装饰、背景和转场，换一个种子就是另一种编排。
+- 读入歌曲后检测 BPM 和节拍，镜头切换对齐拍点，并把音轨合成进视频；提供 LRC 时间戳时，每句歌词会对准演唱时间。
+- 6 个主题（文字PV、动态字幕、和风、恐怖、流行、抒情）和 27 种配色风格。
+- 先出一张样片拼图预览，满意后再导出完整视频；保存的 `project.json` 可以原样复用。
+- 画面比例 16:9 / 9:16 / 1:1 等，720p～4K，24 / 30 / 60fps。
+- 导出 MP4（H.264，可带音轨）、绿幕或黑底素材、透明 ProRes 4444 MOV、PNG 序列。
+
+首次使用前安装渲染依赖（还需要系统里有 `ffmpeg`）：
+
+```bash
+npm install --prefix <技能目录>/scripts
+npx --prefix <技能目录>/scripts playwright install chromium
+```
+
+使用示例：
+
+```text
+用 lyric-video 把 lyrics.txt 做成竖版歌词视频，配上 demo.mp3，风格偏抒情。
+```
+
+```text
+把这首歌的 LRC 歌词做成文字 PV，先给我看几版样片，选好后导出 1080p MP4。
+```
+
+```text
+把歌词做成绿幕素材，我要拿到剪辑软件里合成。
+```
+
+结果默认保存在 `lyric-videos/时间戳-歌词摘要/`，包含 `video.mp4`、可复用的 `project.json` 和逐镜头记录 `cuts.json`。在 4 核机器上，1080p 大约每秒渲染 15 帧，一首 4 分钟的歌约需 6～7 分钟。
+
+歌词需由用户提供，歌词和歌曲的权利归原权利人所有；生成的视频归制作者所有。
 
 许可证：[MIT](LICENSE)。
