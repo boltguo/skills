@@ -8,6 +8,7 @@ saves them along with a prompt.md to a timestamped folder.
 import argparse
 import base64
 import json
+import mimetypes
 import os
 import re
 import sys
@@ -15,25 +16,28 @@ import urllib.request
 import urllib.error
 from datetime import datetime
 
-VALID_MODELS = [
-    "gemini-3.1-flash-image-preview",
-    "gemini-3-pro-image-preview",
+DEFAULT_MODEL = "gemini-nano-banana-2.1"
+VALID_MODELS = [DEFAULT_MODEL]
+
+SUPPORTED_ASPECT_RATIOS = [
+    "1:1", "1:4", "1:8", "2:3", "3:2", "3:4",
+    "4:1", "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9",
 ]
 
-# Flash supports all ratios and sizes; Pro has a smaller set
-MODEL_ASPECT_RATIOS = {
-    "gemini-3.1-flash-image-preview": [
-        "1:1", "1:4", "1:8", "2:3", "3:2", "3:4",
-        "4:1", "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9",
-    ],
-    "gemini-3-pro-image-preview": [
-        "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9",
-    ],
-}
+SUPPORTED_IMAGE_SIZES = ["1K", "2K", "4K"]
 
-MODEL_IMAGE_SIZES = {
-    "gemini-3.1-flash-image-preview": ["512", "1K", "2K", "4K"],
-    "gemini-3-pro-image-preview": ["1K", "2K", "4K"],
+SUPPORTED_THINKING_LEVELS = ["MINIMAL", "MEDIUM", "HIGH"]
+
+MAX_REFERENCE_IMAGES = 14
+
+MIME_BY_EXT = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+    ".gif": "image/gif",
 }
 
 
@@ -46,50 +50,72 @@ def sanitize_for_folder(text, max_len=50):
     return text or 'image'
 
 
-def build_payload(prompt, model, aspect_ratio, image_size):
-    """Build the API request payload, adapting config per model."""
+def load_image_part(image_path):
+    """Read a local image file and return an inlineData part dict for the Gemini API."""
+    if not os.path.isfile(image_path):
+        print(f"Error: Reference image not found: '{image_path}'", file=sys.stderr)
+        sys.exit(1)
+
+    ext = os.path.splitext(image_path)[1].lower()
+    mime_type = MIME_BY_EXT.get(ext) or mimetypes.guess_type(image_path)[0] or "image/png"
+    if not mime_type.startswith("image/"):
+        print(f"Error: Unsupported reference image format '{image_path}' ({mime_type})", file=sys.stderr)
+        sys.exit(1)
+
+    with open(image_path, "rb") as f:
+        b64_data = base64.b64encode(f.read()).decode("utf-8")
+
+    return {
+        "inlineData": {
+            "mimeType": mime_type,
+            "data": b64_data,
+        }
+    }
+
+
+def build_payload(prompt, aspect_ratio, image_size, thinking_level, ref_images=None):
+    """Build the API request payload for gemini-nano-banana-2.1."""
     image_config = {
         "aspectRatio": aspect_ratio,
         "imageSize": image_size,
     }
 
     generation_config = {
-        "responseModalities": ["IMAGE", "TEXT"],
+        "responseModalities": ["IMAGE"],
         "imageConfig": image_config,
+        "thinkingConfig": {
+            "thinkingLevel": thinking_level,
+        },
     }
 
-    # Flash supports thinkingConfig; Pro does not
-    if "flash" in model:
-        generation_config["thinkingConfig"] = {
-            "thinkingLevel": "MINIMAL",
-        }
+    parts = [{"text": prompt}]
+    for img_path in (ref_images or []):
+        parts.append(load_image_part(img_path))
 
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
+        "contents": [{"parts": parts}],
         "generationConfig": generation_config,
-    }
-
-    # Flash supports Google Search + Image Search grounding
-    if "flash" in model:
-        payload["tools"] = [{
+        "tools": [{
             "googleSearch": {
                 "searchTypes": {
-                    "imageSearch": {}
+                    "webSearch": {},
+                    "imageSearch": {},
                 }
             }
-        }]
+        }],
+    }
 
     return payload
 
 
-def call_gemini_api(prompt, api_key, model, aspect_ratio, image_size):
+def call_gemini_api(prompt, api_key, model, aspect_ratio, image_size, thinking_level, ref_images=None):
     """Call the Gemini generateContent endpoint and return the parsed JSON."""
     url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/"
         f"{model}:generateContent?key={api_key}"
     )
 
-    payload = build_payload(prompt, model, aspect_ratio, image_size)
+    payload = build_payload(prompt, aspect_ratio, image_size, thinking_level, ref_images=ref_images)
 
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(
@@ -108,7 +134,7 @@ def call_gemini_api(prompt, api_key, model, aspect_ratio, image_size):
         sys.exit(1)
 
 
-def extract_and_save(result, output_dir, prompt, model, aspect_ratio, image_size):
+def extract_and_save(result, output_dir, prompt, model, aspect_ratio, image_size, thinking_level, ref_images=None):
     """Extract images and text from API response, write files to output_dir."""
     os.makedirs(output_dir, exist_ok=True)
 
@@ -119,6 +145,8 @@ def extract_and_save(result, output_dir, prompt, model, aspect_ratio, image_size
     for candidate in result.get("candidates", []):
         parts = candidate.get("content", {}).get("parts", [])
         for part in parts:
+            if part.get("thought"):
+                continue
             if "text" in part:
                 response_texts.append(part["text"])
             elif "inlineData" in part:
@@ -142,6 +170,11 @@ def extract_and_save(result, output_dir, prompt, model, aspect_ratio, image_size
         f"- **Model**: `{model}`",
         f"- **Aspect Ratio**: {aspect_ratio}",
         f"- **Image Size**: {image_size}",
+        f"- **Thinking Level**: {thinking_level}",
+    ]
+    if ref_images:
+        lines.append(f"- **Reference Images** ({len(ref_images)}): {', '.join(f'`{p}`' for p in ref_images)}")
+    lines += [
         f"- **Generated At**: {now}",
         "",
         "## Prompt",
@@ -165,19 +198,27 @@ def extract_and_save(result, output_dir, prompt, model, aspect_ratio, image_size
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate images with the Gemini API")
+    parser = argparse.ArgumentParser(description="Generate images with the Gemini API (Nano Banana 2.1)")
     parser.add_argument("prompt", help="Image generation prompt")
     parser.add_argument(
-        "--model", default="gemini-3.1-flash-image-preview",
-        help=f"Model ID (default: gemini-3.1-flash-image-preview). Options: {', '.join(VALID_MODELS)}",
+        "--model", default=DEFAULT_MODEL,
+        help=f"Model ID (default: {DEFAULT_MODEL})",
     )
     parser.add_argument(
         "--aspect-ratio", default="16:9",
-        help="Aspect ratio (default: 16:9). Supported ratios vary by model.",
+        help=f"Aspect ratio (default: 16:9). Options: {', '.join(SUPPORTED_ASPECT_RATIOS)}",
     )
     parser.add_argument(
         "--image-size", default="2K",
-        help="Image resolution (default: 2K). Supported sizes vary by model.",
+        help=f"Image resolution (default: 2K). Options: {', '.join(SUPPORTED_IMAGE_SIZES)}",
+    )
+    parser.add_argument(
+        "--thinking-level", default="HIGH",
+        help=f"Thinking level (default: HIGH). Options: {', '.join(SUPPORTED_THINKING_LEVELS)}",
+    )
+    parser.add_argument(
+        "-i", "--image", action="extend", nargs="+", default=[], metavar="PATH",
+        help=f"Reference image path(s) for image editing or multi-image fusion (up to {MAX_REFERENCE_IMAGES} images)",
     )
     parser.add_argument(
         "--output-dir", default=None,
@@ -206,32 +247,48 @@ def main():
     if args.model not in VALID_MODELS:
         print(
             f"Error: Unknown model '{args.model}'.\n"
-            f"Supported models: {', '.join(VALID_MODELS)}",
+            f"Supported model: {', '.join(VALID_MODELS)}",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    supported_ratios = MODEL_ASPECT_RATIOS[args.model]
-    supported_sizes = MODEL_IMAGE_SIZES[args.model]
+    # Validate reference images count
+    if len(args.image) > MAX_REFERENCE_IMAGES:
+        print(
+            f"Error: Too many reference images ({len(args.image)}). "
+            f"{args.model} supports up to {MAX_REFERENCE_IMAGES} reference images.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     # Validate aspect ratio
-    if args.aspect_ratio not in supported_ratios:
+    if args.aspect_ratio not in SUPPORTED_ASPECT_RATIOS:
         print(
             f"Warning: '{args.aspect_ratio}' is not supported by {args.model}. "
-            f"Supported: {', '.join(supported_ratios)}. Falling back to 16:9.",
+            f"Supported: {', '.join(SUPPORTED_ASPECT_RATIOS)}. Falling back to 16:9.",
             file=sys.stderr,
         )
         args.aspect_ratio = "16:9"
 
     # Validate image size
-    if args.image_size not in supported_sizes:
+    if args.image_size not in SUPPORTED_IMAGE_SIZES:
         fallback = "1K" if args.image_size == "512" else "2K"
         print(
             f"Warning: '{args.image_size}' is not supported by {args.model}. "
-            f"Supported: {', '.join(supported_sizes)}. Falling back to {fallback}.",
+            f"Supported: {', '.join(SUPPORTED_IMAGE_SIZES)}. Falling back to {fallback}.",
             file=sys.stderr,
         )
         args.image_size = fallback
+
+    # Validate thinking level
+    args.thinking_level = args.thinking_level.upper()
+    if args.thinking_level not in SUPPORTED_THINKING_LEVELS:
+        print(
+            f"Warning: '{args.thinking_level}' is not a valid thinking level for {args.model}. "
+            f"Supported: {', '.join(SUPPORTED_THINKING_LEVELS)}. Falling back to HIGH.",
+            file=sys.stderr,
+        )
+        args.thinking_level = "HIGH"
 
     # Determine output directory: gemini-images/<timestamp>-<topic>/
     output_dir = args.output_dir
@@ -249,11 +306,14 @@ def main():
         model=args.model,
         aspect_ratio=args.aspect_ratio,
         image_size=args.image_size,
+        thinking_level=args.thinking_level,
+        ref_images=args.image,
     )
 
     images, texts = extract_and_save(
         result, output_dir, args.prompt,
-        args.model, args.aspect_ratio, args.image_size,
+        args.model, args.aspect_ratio, args.image_size, args.thinking_level,
+        ref_images=args.image,
     )
 
     # Determine actual success based on whether images were generated

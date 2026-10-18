@@ -8,7 +8,7 @@
 
 | 技能 | 主要能力 | 使用条件 |
 | --- | --- | --- |
-| [gemini-image-gen](gemini-image-gen/SKILL.md) | 通过 Gemini API 生成图片，选择模型、尺寸和比例，保存图片及生成记录 | Python 3、Gemini API Key、网络连接 |
+| [gemini-image-gen](gemini-image-gen/SKILL.md) | 通过 Gemini API（Nano Banana 2.1）生成图片，支持设置尺寸、宽高比和思考深度，保存图片及生成记录 | Python 3、Gemini API Key、网络连接 |
 | [human-writing-craft](human-writing-craft/SKILL.md) | 中英文去 AI 味、润色改写、内容创作、文风匹配、翻译和写作审校 | 写作流程无需额外 API Key；可选文本扫描工具需要 Python 3 |
 | [lyric-video](lyric-video/SKILL.md) | 把歌词（可配歌曲）自动编排成文字 PV / 动态歌词视频，按节拍切镜，导出 MP4、透明 MOV 或 PNG 序列 | Node.js 18+、ffmpeg、Playwright（Chromium） |
 
@@ -57,8 +57,8 @@ npx skills add boltguo/skills --skill human-writing-craft --agent codex -g
 
 适合生成插画、封面、海报、概念图等图片。支持：
 
-- 根据文字描述生成图片，指定画面内容、风格、光线和构图。
-- 选择 Flash 或 Pro 模型，以及模型支持的图片尺寸和宽高比。
+- 根据文字描述生成图片，或传入最多 14 张参考图进行改图、线稿上色、角色一致性保持与多物体融合。
+- 使用 `gemini-nano-banana-2.1` 模型，默认最高思考深度（`HIGH`）与纯图片输出，支持自定义图片尺寸（`1K`/`2K`/`4K`）和 14 种宽高比。
 - 将图片、提示词和生成参数保存到独立目录，方便查阅和复用。
 - 按需保存 API 原始响应，便于排查问题。
 

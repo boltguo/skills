@@ -21,74 +21,65 @@ First-time permission setup:
 claude config add permissions.allow "Bash(python */gemini-image-gen/scripts/generate_image.py*)"
 ```
 
-## Models
+## Model
 
-| Model                            | Notes                                                                 |
-| -------------------------------- | --------------------------------------------------------------------- |
-| `gemini-3.1-flash-image-preview` | **Default.** Fast, supports thinkingConfig + googleSearch/imageSearch |
-| `gemini-3-pro-image-preview`     | Higher quality, better text rendering and complex layouts             |
+| Model                    | Notes                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `gemini-nano-banana-2.1` | **Default (Nano Banana 2.1).** Image-only output (`responseModalities: ["IMAGE"]`), `thinkingConfig` (`HIGH` default), Google Web/Image Search grounding, up to 14 ref images |
 
 ## Parameters
 
 ### `--image-size`
 
-Must use **uppercase `K`**. Unsupported values are caught by the script and fall back (Pro 512→1K, others→2K).
+Must use **uppercase `K`**. Unsupported values are caught by the script and fall back (`512`→`1K`, others→`2K`).
 
-| Value | Flash       | Pro |
-| ----- | ----------- | --- |
-| `512` | Yes         | No  |
-| `1K`  | Yes         | Yes |
-| `2K`  | **default** | Yes |
-| `4K`  | Yes         | Yes |
+| Value | Supported | Notes                                |
+| ----- | --------- | ------------------------------------ |
+| `1K`  | Yes       | Fast preview / standard resolution   |
+| `2K`  | Yes       | **Default.** Balanced quality & size |
+| `4K`  | Yes       | Ultra-high resolution                |
 
 ### `--aspect-ratio`
 
-**Flash** (14): `1:1` · `1:4` · `1:8` · `2:3` · `3:2` · `3:4` · `4:1` · `4:3` · `4:5` · `5:4` · `8:1` · `9:16` · `16:9` · `21:9`
+Supports **14 aspect ratios** (including ultra-wide and panoramic ratios with fixed tiling at `2K`/`4K`):
 
-**Pro** (10): `1:1` · `2:3` · `3:2` · `3:4` · `4:3` · `4:5` · `5:4` · `9:16` · `16:9` · `21:9`
+`1:1` · `1:4` · `1:8` · `2:3` · `3:2` · `3:4` · `4:1` · `4:3` · `4:5` · `5:4` · `8:1` · `9:16` · `16:9` (default) · `21:9`
 
 Unsupported ratio auto-falls back to `16:9`.
+
+### `--thinking-level`
+
+Controls the reasoning depth before generating the final image (case-insensitive):
+
+| Value     | Notes                                                            |
+| --------- | ---------------------------------------------------------------- |
+| `HIGH`    | **Default.** Maximum reasoning for complex layouts and prompts   |
+| `MEDIUM`  | Balanced composition reasoning & speed                           |
+| `MINIMAL` | Fastest latency, minimal interim reasoning                       |
+
+Unsupported level auto-falls back to `HIGH`.
+
+### `-i` / `--image` (Reference Images)
+
+Pass up to **14 local reference images** (`.png`, `.jpg`/`.jpeg`, `.webp`, `.heic`, `.heif`, `.gif`) for image editing, sketch-to-image, character consistency (up to 4 characters), or multi-object fusion (up to 10 objects):
+
+```bash
+python <skill-path>/scripts/generate_image.py "prompt" -i ref1.png ref2.jpg
+```
 
 ### Other flags
 
 - `--save-request`: Save `response.json` (Gemini API response) to output folder
 - `--output-dir`: Override auto-generated output path
 
-## Workflow
+## Usage
 
-**IMPORTANT:**
-
-- You MUST use `AskUserQuestion` tool (not plain text) to collect user input. Plain text does NOT pause execution.
-- Match the user's language for all UI text (questions, labels, descriptions).
-
-### Step 1: Collect Prompt
-
-- User already provided a clear prompt → use it directly, craft an English version (Gemini works best with English), go to Step 2.
-- No prompt or too vague → call `AskUserQuestion`:
-  - question: "Describe the image you want to generate:"
-  - header: "Prompt"
-  - options: provide 2-3 example prompts as inspiration (e.g. "Cyberpunk city at night", "Watercolor cat portrait")
-
-### Step 2: Settings
-
-Call `AskUserQuestion` with 4 questions in a single call. The first option in each is the default (Recommended). Users can accept defaults or switch as needed:
-
-1. **Model** — header: "Model", options: "Flash (Recommended)" / "Pro"
-2. **Size** — header: "Size", options: "2K (Recommended)" / "1K" / "4K"
-3. **Ratio** — header: "Ratio", options: "16:9 (Recommended)" / "1:1" / "9:16" / "21:9"
-4. **Save JSON** — header: "Debug", options: "No (Recommended)" / "Save response.json"
-
-### Step 3: Generate
-
-```bash
-python <skill-path>/scripts/generate_image.py "prompt" [--model ...] [--aspect-ratio ...] [--image-size ...] [--save-request]
-```
-
-### Step 4: Results
-
-1. Read and show the generated image
-2. If `success: false` → inform user (likely safety filter)
-3. Report output folder path
+1. **Craft the prompt**: Refine the user's request into a clear, detailed prompt (English works best, or match user's text requirements if rendering specific text in the image).
+2. **Run the script**: Call `generate_image.py` directly using the defaults (`2K`, `16:9`, `HIGH` thinking), overriding flags only when requested by the user or implied by the use case (e.g., `9:16` for mobile wallpapers/posters, `-i` when reference images are provided):
+   ```bash
+   python <skill-path>/scripts/generate_image.py "prompt" [--aspect-ratio ...] [--image-size ...] [--thinking-level ...] [-i ref1.png ...] [--save-request]
+   ```
+3. **Return results**: Show the generated image and report the output folder path (or inform the user if `success: false`).
 
 ## Prompt Tips
 
