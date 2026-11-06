@@ -3,7 +3,7 @@ import { main } from '../src/cli.js';
 
 main().catch((error) => {
   if (error.name === 'ExitPromptError' || error.name === 'AbortPromptError') {
-    console.error('\n已取消。');
+    console.error('\nCancelled.');
     process.exitCode = 130;
   } else {
     console.error(`skilljet: ${error.message}`);

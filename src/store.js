@@ -27,7 +27,7 @@ export async function readJSON(file, fallback) {
   try { return JSON.parse(await fs.readFile(file, 'utf8')); }
   catch (e) {
     if (e.code === 'ENOENT') return structuredClone(fallback);
-    throw new Error(`无法读取 ${file}：${e.message}`);
+    throw new Error(`Could not read ${file}: ${e.message}`);
   }
 }
 
@@ -40,7 +40,7 @@ export async function readConfig(ctx) {
       !(config.ref === null || (typeof config.ref === 'string' && config.ref && !config.ref.startsWith('-'))) ||
       !Array.isArray(config.agents) || !config.agents.length || config.agents.some((a) => !Object.hasOwn(AGENTS, a)) ||
       !Array.isArray(config.excluded) || config.excluded.some((n) => !validName(n))) {
-    throw new Error(`配置格式无效：${ctx.configFile}`);
+    throw new Error(`Invalid config format: ${ctx.configFile}`);
   }
   config.agents = [...new Set(config.agents)];
   return config;
@@ -48,13 +48,13 @@ export async function readConfig(ctx) {
 
 export async function readState(ctx) {
   const state = await readJSON(ctx.stateFile, { version: 1, installs: {} });
-  if (state.version !== 1 || !state.installs || typeof state.installs !== 'object' || Array.isArray(state.installs)) throw new Error(`安装记录格式无效：${ctx.stateFile}`);
+  if (state.version !== 1 || !state.installs || typeof state.installs !== 'object' || Array.isArray(state.installs)) throw new Error(`Invalid installation state format: ${ctx.stateFile}`);
   for (const [key, item] of Object.entries(state.installs)) {
     if (!item || !validName(item.name) || !Object.hasOwn(AGENTS, item.agent) || key !== recordKey(ctx, item.agent, item.name) ||
         typeof item.repo !== 'string' || typeof item.commit !== 'string' ||
         !item.files || typeof item.files !== 'object' || Array.isArray(item.files) || !Object.hasOwn(item.files, 'SKILL.md') ||
         Object.entries(item.files).some(([f, v]) => !validFile(f) || !v || !/^[a-f0-9]{64}$/.test(v.hash) || typeof v.executable !== 'boolean')) {
-      throw new Error(`安装记录无效：${ctx.stateFile} (${key})`);
+      throw new Error(`Invalid installation record: ${ctx.stateFile} (${key})`);
     }
   }
   return state;
@@ -63,15 +63,15 @@ export async function readState(ctx) {
 // Inspect only descendants of the scope root; never follow a destination symlink.
 export async function assertSafe(ctx, file) {
   const rel = path.relative(ctx.base, file);
-  if (!rel || rel.startsWith(`..${path.sep}`) || rel === '..' || path.isAbsolute(rel)) throw new Error(`路径超出安装范围：${file}`);
+  if (!rel || rel.startsWith(`..${path.sep}`) || rel === '..' || path.isAbsolute(rel)) throw new Error(`Path is outside the installation scope: ${file}`);
   let current = ctx.base;
   const parts = rel.split(path.sep);
   for (let i = 0; i < parts.length; i++) {
     current = path.join(current, parts[i]);
     const stat = await exists(current);
     if (!stat) break;
-    if (stat.isSymbolicLink()) throw new Error(`路径是符号链接，未覆盖：${current}`);
-    if (i < parts.length - 1 && !stat.isDirectory()) throw new Error(`父路径不是目录：${current}`);
+    if (stat.isSymbolicLink()) throw new Error(`Path is a symlink and will not be overwritten: ${current}`);
+    if (i < parts.length - 1 && !stat.isDirectory()) throw new Error(`Parent path is not a directory: ${current}`);
   }
 }
 
@@ -104,7 +104,7 @@ export async function withLock(ctx, action) {
   let handle;
   try { handle = await fs.open(file, 'wx', 0o600); }
   catch (e) {
-    if (e.code === 'EEXIST') throw new Error(`此范围已有任务运行：${file}。若上次进程异常退出，请确认没有 skilljet 进程后删除该锁文件。`);
+    if (e.code === 'EEXIST') throw new Error(`Another operation holds the scope lock: ${file}. If a previous process crashed, verify that no skilljet process is running before removing this lock file.`);
     throw e;
   }
   try {

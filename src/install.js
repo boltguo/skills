@@ -8,7 +8,7 @@ async function verifyManaged(ctx, dest, record) {
   for (const [file, expected] of Object.entries(record.files)) {
     const full = path.join(dest, file);
     await assertSafe(ctx, full);
-    if (!sameFile(await fingerprint(full), expected)) return `本地文件已修改或缺失：${file}`;
+    if (!sameFile(await fingerprint(full), expected)) return `Local file has been modified or is missing: ${file}`;
   }
   return null;
 }
@@ -21,16 +21,16 @@ export async function planInstall(ctx, skill, agent, config, state, files) {
   try {
     await assertSafe(ctx, dest);
     const stat = await exists(dest);
-    if (record && record.repo !== config.repo) throw new Error(`同名技能来自另一个仓库：${record.repo}`);
-    if (stat && !record) throw new Error('目标目录已存在，但不属于 skilljet 管理');
-    if (stat && !stat.isDirectory()) throw new Error('目标路径不是目录');
+    if (record && record.repo !== config.repo) throw new Error(`A skill with this name belongs to another repository: ${record.repo}`);
+    if (stat && !record) throw new Error('Destination already exists and is not managed by skilljet');
+    if (stat && !stat.isDirectory()) throw new Error('Destination path is not a directory');
     if (stat && record) {
       const changed = await verifyManaged(ctx, dest, record);
       if (changed) throw new Error(changed);
       for (const file of Object.keys(files)) {
         const full = path.join(dest, file);
         await assertSafe(ctx, full);
-        if (!Object.hasOwn(record.files, file) && await exists(full)) throw new Error(`新文件与本地非托管内容冲突：${file}`);
+        if (!Object.hasOwn(record.files, file) && await exists(full)) throw new Error(`New file conflicts with unmanaged local content: ${file}`);
       }
       plan.action = sameFiles(files, record.files) ? 'unchanged' : 'update';
     }
@@ -65,7 +65,7 @@ async function swap(dest, stage, commit) {
   }
   if (hadPrevious) {
     try { await fs.rm(backup, { recursive: true, force: true }); }
-    catch { console.warn(`更新成功，但旧备份未能清理：${backup}`); }
+    catch { console.warn(`Update succeeded, but the old backup could not be removed: ${backup}`); }
   }
 }
 
@@ -103,10 +103,10 @@ export async function removeInstall(ctx, key, state, dryRun = false) {
   const dest = path.join(targetRoot(ctx, record.agent), record.name);
   await assertSafe(ctx, dest);
   const stat = await exists(dest);
-  if (stat && !stat.isDirectory()) throw new Error(`目标不是目录：${dest}`);
+  if (stat && !stat.isDirectory()) throw new Error(`Destination is not a directory: ${dest}`);
   if (stat) {
     const changed = await verifyManaged(ctx, dest, record);
-    if (changed) throw new Error(`${record.name}：${changed}，未卸载`);
+    if (changed) throw new Error(`${record.name}: ${changed}; not uninstalled`);
   }
   if (dryRun) return;
   const next = { ...state.installs };

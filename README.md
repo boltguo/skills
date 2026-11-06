@@ -135,7 +135,7 @@ skilljet remove --skill lyric-video
 
 Each scope has one configured source repository. Global configuration and installation records live in `~/.config/skilljet/`; project records live in `.skilljet/`. Keep the installation records so skilljet can distinguish its own files from other installations.
 
-See the [detailed command reference (Chinese)](docs/skilljet.md) for selection rules, storage, and recovery details. The CLI prompts are currently in Chinese.
+See the [detailed command reference](docs/skilljet.md) for selection rules, storage, and recovery details. CLI prompts, help, and errors are in English. Skill descriptions are displayed as written in the source repository.
 
 ## Skills in this repository
 

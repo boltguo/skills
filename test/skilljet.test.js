@@ -60,7 +60,7 @@ test('default global install includes every skill and both default agents', asyn
   assert.match(list.stdout, /alpha/);
   const repeat = await f.run('update', '--yes');
   assert.equal(repeat.code, 0, repeat.stderr);
-  assert.match(repeat.stdout, /未变化 4/);
+  assert.match(repeat.stdout, /unchanged 4/);
 });
 
 test('updates remove obsolete tracked files, preserve generated content and executable mode', async (t) => {
@@ -112,7 +112,7 @@ test('modified managed file conflicts even with --yes; other targets still updat
   await f.skill('alpha', 'v2'); await f.commit();
   const result = await f.run('update', '--yes');
   assert.equal(result.code, 1);
-  assert.match(result.stdout, /本地文件已修改/);
+  assert.match(result.stdout, /Local file has been modified/);
   assert.equal(await fs.readFile(path.join(f.dest(), 'SKILL.md'), 'utf8'), 'my local edits');
   assert.match(await fs.readFile(path.join(f.dest('alpha', '.claude'), 'SKILL.md'), 'utf8'), /v2/);
 });
@@ -122,13 +122,13 @@ test('unmanaged same-name folders and generated file collisions are never overwr
   await put(path.join(f.dest(), 'mine.txt'), 'mine');
   let result = await f.run('install', '--repo', f.repo, '--yes');
   assert.equal(result.code, 1);
-  assert.match(result.stdout, /不属于 skilljet 管理/);
+  assert.match(result.stdout, /not managed by skilljet/);
   assert.equal(await fs.readFile(path.join(f.dest(), 'mine.txt'), 'utf8'), 'mine');
   await put(path.join(f.dest('alpha', '.claude'), 'new.txt'), 'local file');
   await put(path.join(f.alpha, 'new.txt'), 'upstream file'); await f.commit();
   result = await f.run('update', '--yes');
   assert.equal(result.code, 1);
-  assert.match(result.stdout, /非托管内容冲突/);
+  assert.match(result.stdout, /unmanaged local content/);
   assert.equal(await fs.readFile(path.join(f.dest('alpha', '.claude'), 'new.txt'), 'utf8'), 'local file');
 });
 
@@ -175,7 +175,7 @@ test('selected skill filters do not exclude unrelated skills; invalid names fail
   assert.deepEqual((await json(f.ctx.configFile)).excluded, []);
   const result = await f.run('install', '--skill', 'no-such-skill', '--yes');
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /仓库中没有技能/);
+  assert.match(result.stderr, /Skill not found in repository/);
 });
 
 test('remove preserves generated files, remembers exclusions and refuses local edits', async (t) => {
@@ -200,7 +200,7 @@ test('upstream removal retains installed skill; failure to fetch leaves installa
   await fs.rm(f.alpha, { recursive: true }); await f.commit();
   let result = await f.run('update', '--yes');
   assert.equal(result.code, 0, result.stderr);
-  assert.match(result.stdout, /上游已移除/);
+  assert.match(result.stdout, /Removed upstream/);
   await fs.access(path.join(f.dest(), 'SKILL.md'));
   const before = await fs.readFile(f.ctx.stateFile, 'utf8');
   result = await f.run('update', '--ref', 'missing-branch', '--yes');
@@ -232,10 +232,10 @@ test('discovery skips agent aliases and dependencies; invalid duplicate or unsaf
   await f.skill('dependency', 'v1', 'node_modules');
   assert.deepEqual((await discover(f.repo)).map((s) => s.name), ['alpha', 'beta']);
   await put(path.join(f.repo, 'duplicate', 'SKILL.md'), '---\nname: alpha\ndescription: duplicate\n---\n');
-  await assert.rejects(discover(f.repo), /重名/);
+  await assert.rejects(discover(f.repo), /Duplicate skill name/);
   await fs.rm(path.join(f.repo, 'duplicate'), { recursive: true });
   await put(path.join(f.alpha, 'SKILL.md'), '---\nname: ../../escape\ndescription: unsafe\n---\n');
-  await assert.rejects(discover(f.repo), /有效的 name/);
+  await assert.rejects(discover(f.repo), /valid name/);
 });
 
 test('symbolic links inside source skills fail before any target installation', async (t) => {
@@ -243,7 +243,7 @@ test('symbolic links inside source skills fail before any target installation', 
   await fs.symlink('/etc/passwd', path.join(f.alpha, 'unsafe.txt')); await f.commit();
   const result = await f.run('install', '--repo', f.repo, '--yes');
   assert.equal(result.code, 1);
-  assert.match(result.stderr, /符号链接/);
+  assert.match(result.stderr, /symlink/);
   await missing(path.join(f.home, '.agents'));
   await missing(f.ctx.configFile);
 });
@@ -271,7 +271,7 @@ test('scope lock rejects concurrent runs and releases after errors', async (t) =
   await withLock(f.ctx, async () => {
     const result = await f.run('install', '--repo', f.repo, '--yes');
     assert.equal(result.code, 1);
-    assert.match(result.stderr, /已有任务运行/);
+    assert.match(result.stderr, /Another operation holds/);
   });
   await assert.rejects(withLock(f.ctx, async () => { throw new Error('test'); }), /test/);
   await missing(path.join(f.ctx.dir, 'lock'));
@@ -279,13 +279,13 @@ test('scope lock rejects concurrent runs and releases after errors', async (t) =
 
 test('help, version and validation do not alter home; noninteractive mutation needs --yes', async (t) => {
   const f = await fixture(t);
-  assert.equal((await f.run('--version')).stdout.trim(), '0.1.1');
-  assert.match((await f.run('--help')).stdout, /默认：全局/);
+  assert.equal((await f.run('--version')).stdout.trim(), '0.1.2');
+  assert.match((await f.run('--help')).stdout, /Defaults: global/);
   assert.equal((await f.run('install', '--repo', f.repo)).code, 1);
   assert.equal((await f.run('install', '--agent', 'typo', '--yes')).code, 1);
   assert.equal((await f.run('update', '--skill', 'alpha', '--all', '--yes')).code, 1);
   assert.deepEqual(await fs.readdir(f.home), []);
   assert.equal(normalizeRepo('boltguo/skills'), 'https://github.com/boltguo/skills.git');
-  assert.throws(() => normalizeRepo('https://secret@example.com/repo'), /账号/);
-  assert.throws(() => normalizeRepo('--upload-pack=bad'), /仓库格式/);
+  assert.throws(() => normalizeRepo('https://secret@example.com/repo'), /credentials/);
+  assert.throws(() => normalizeRepo('--upload-pack=bad'), /Repository must be/);
 });
