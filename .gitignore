@@ -6,3 +6,6 @@ gemini-images
 lyric-videos
 node_modules
 workspace
+
+# Local agent skill links
+.agents/
