@@ -6,3 +6,12 @@ gemini-images
 lyric-videos
 node_modules
 workspace
+
+.agent
+.claude
+
+anatomy
+business-motion-film
+
+# Local agent skill links
+.agents/
