@@ -1,0 +1,23 @@
+{
+  "name": "skilljet",
+  "version": "0.1.1",
+  "description": "Install and update your Git-hosted agent skills across Codex, Claude Code and Antigravity.",
+  "type": "module",
+  "bin": { "skilljet": "bin/skilljet.js" },
+  "files": ["bin/", "src/", "docs/skilljet.md", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "check": "node --check bin/skilljet.js && node --check src/cli.js && node --check src/store.js && node --check src/repository.js && node --check src/install.js",
+    "prepublishOnly": "npm run check && npm test"
+  },
+  "engines": { "node": "^22.13.0 || >=23.5.0" },
+  "dependencies": {
+    "@inquirer/prompts": "^8.7.5",
+    "yaml": "^2.9.1"
+  },
+  "repository": { "type": "git", "url": "git+https://github.com/boltguo/skills.git" },
+  "homepage": "https://github.com/boltguo/skills#readme",
+  "bugs": { "url": "https://github.com/boltguo/skills/issues" },
+  "keywords": ["agent-skills", "skills", "codex", "claude", "antigravity", "cli"],
+  "license": "MIT"
+}
