@@ -9,6 +9,7 @@ The [skillsm CLI](https://github.com/boltguo/skillsm) is maintained in a separat
 | Skill | Purpose | Requirements |
 | --- | --- | --- |
 | [gemini-image-gen](gemini-image-gen/SKILL.md) | Generate and edit images through Gemini, including reference images | Python 3, a Gemini API key, network access |
+| [openai-image-gen](openai-image-gen/SKILL.md) | Generate and edit images through OpenAI, including consistent character views; defaults to GPT Image 2.6 Flare | Python 3, `openai`, global `OPENAI_API_KEY`, network access |
 | [human-writing-craft](human-writing-craft/SKILL.md) | Draft, revise, translate, and audit Chinese and English prose | No additional API key; Python 3 for the optional text audit script |
 | [lyric-video](lyric-video/SKILL.md) | Turn lyrics and optional audio into animated typography videos | Node.js, ffmpeg, Playwright with Chromium |
 
@@ -48,6 +49,8 @@ Describe the task to your agent, or name the skill explicitly:
 ```text
 Use gemini-image-gen to create a watercolor illustration of a cafe at sunrise.
 
+Use openai-image-gen to generate a 1024x1024 character front view with the flare model.
+
 Use human-writing-craft to revise this draft while preserving its meaning and facts.
 
 Use lyric-video to turn lyrics.txt and demo.mp3 into a vertical lyric video.
@@ -58,6 +61,8 @@ For image generation, set your API key before starting the agent:
 
 ```bash
 export GEMINI_API_KEY="your-api-key"
+# For openai-image-gen:
+export OPENAI_API_KEY="your-api-key"
 ```
 
 `GOOGLE_API_KEY` is also supported. For lyric video rendering, follow the dependency setup in [lyric-video/SKILL.md](lyric-video/SKILL.md).

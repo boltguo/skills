@@ -1,4 +1,7 @@
 gemini-images
+openai-images/
+openai-image-gen/.venv/
+openai-image-gen/**/__pycache__/
 *.pptx
 *.pdf
 

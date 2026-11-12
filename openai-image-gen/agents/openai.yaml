@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenAI 生图"
+  short_description: "使用全局 API Key 调用 OpenAI，生成图片、参考图编辑与一致角色多视角。"
+  default_prompt: "使用 $openai-image-gen 生成一张干净细腻的 2K 图片，默认使用 flare 模型。"
